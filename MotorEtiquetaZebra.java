@@ -1,4 +1,6 @@
 import javax.print.*;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.PrintRequestAttributeSet;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -6,60 +8,46 @@ import java.util.HashMap;
 
 public class MotorEtiquetaZebra {
 
-    // Ponto de partida do teste (a "chave de ignição")
-    public static void main(String[] args) {
-        System.out.println("Iniciando FoxSenior - Teste de Impressão Raw...");
+    public static boolean imprimirEtiqueta(String caminhoTemplateOut, Map<String, String> variaveisProduto, String lote, String turno, String validade) throws Exception {
+        String layoutZpl = new String(Files.readAllBytes(Paths.get(caminhoTemplateOut)));
 
-        Map<String, String> produtoMock = new HashMap<>();
-        produtoMock.put("#C", "BASE SALGADINHO");
-        produtoMock.put("#E", "SABOR QUEIJO");
-        produtoMock.put("#M", "PCT");
-        produtoMock.put("#S", "1.000");
-        produtoMock.put("#B", "MARCA ELBIS");
-        produtoMock.put("#D", "74444");
+        Map<String, String> dadosImpressao = new HashMap<>(variaveisProduto);
+        dadosImpressao.put("#R", lote);
+        dadosImpressao.put("#I", turno);
+        dadosImpressao.put("#Q", validade);
+        dadosImpressao.put("#H", "05/05/2026"); // Data de Hoje mockada para o MVP
 
-        String arquivoTemplate = "Etiqueta Martins.out"; 
-        
-        imprimirEtiqueta(arquivoTemplate, produtoMock, "LOTE-TESTE-01", "1-A", "12/2027");
+        for (Map.Entry<String, String> entry : dadosImpressao.entrySet()) {
+            layoutZpl = layoutZpl.replace(entry.getKey(), entry.getValue());
+        }
+
+        return enviarParaImpressora(layoutZpl);
     }
 
-    // A "engrenagem" que processa as variáveis do produto
-    public static void imprimirEtiqueta(String caminhoTemplateOut, Map<String, String> variaveisProduto, String lote, String turno, String validade) {
-        try {
-            String layoutZpl = new String(Files.readAllBytes(Paths.get(caminhoTemplateOut)));
+    private static boolean enviarParaImpressora(String zplFinal) throws Exception {
+        // Busca todas as impressoras instaladas no Windows
+        PrintService[] servicos = PrintServiceLookup.lookupPrintServices(null, null);
+        PrintService impressoraPadrao = PrintServiceLookup.lookupDefaultPrintService();
 
-            Map<String, String> dadosImpressao = new HashMap<>(variaveisProduto);
-            dadosImpressao.put("#R", lote);
-            dadosImpressao.put("#I", turno);
-            dadosImpressao.put("#Q", validade);
-            dadosImpressao.put("#H", "04/05/2026");
-
-            for (Map.Entry<String, String> entry : dadosImpressao.entrySet()) {
-                layoutZpl = layoutZpl.replace(entry.getKey(), entry.getValue());
-            }
-
-            enviarParaImpressora(layoutZpl);
-            System.out.println("Etiqueta enviada com sucesso!");
-
-        } catch (Exception e) {
-            System.err.println("Erro ao processar etiqueta: " + e.getMessage());
+        if (servicos.length == 0) {
+            throw new RuntimeException("Nenhuma impressora encontrada no sistema.");
         }
-    }
 
-    // O envio direto para a USB
-    private static void enviarParaImpressora(String zplFinal) throws PrintException {
-        System.out.println("\n--- ZPL GERADO PARA TESTE ---");
-        System.out.println(zplFinal);
-        System.out.println("-----------------------------\n");
+        // Abre a janela nativa do Windows para seleção de impressora
+        PrintRequestAttributeSet atributos = new HashPrintRequestAttributeSet();
+        PrintService servicoEscolhido = ServiceUI.printDialog(
+                null, 200, 200, servicos, impressoraPadrao, null, atributos);
 
-
-        PrintService impressora = PrintServiceLookup.lookupDefaultPrintService();
-        if (impressora == null) {
-            throw new RuntimeException("Nenhuma impressora padrão encontrada no Windows.");
+        // Se o usuário clicou em OK e escolheu uma impressora
+        if (servicoEscolhido != null) {
+            DocPrintJob job = servicoEscolhido.createPrintJob();
+            byte[] bytesZpl = zplFinal.getBytes();
+            Doc doc = new SimpleDoc(bytesZpl, DocFlavor.BYTE_ARRAY.AUTOSENSE, null);
+            job.print(doc, atributos);
+            return true; 
+        } else {
+            // Usuário cancelou a impressão na tela do Windows
+            return false; 
         }
-        DocPrintJob job = impressora.createPrintJob();
-        byte[] bytesZpl = zplFinal.getBytes();
-        Doc doc = new SimpleDoc(bytesZpl, DocFlavor.BYTE_ARRAY.AUTOSENSE, null);
-        job.print(doc, null);
     }
 }

@@ -1,117 +1,166 @@
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.lang.reflect.Type;
 
-// Importações da biblioteca Gson
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 public class FoxSeniorApp extends JFrame {
 
+    private JComboBox<String> comboTemplates;
     private JComboBox<Produto> comboProduto;
-    private JTextField txtLote, txtTurno, txtValidade;
+    private JTextField txtMarca, txtEAN, txtLote, txtTurno, txtValidade, txtQtd;
     private JButton btnImprimir;
     private List<Produto> listaProdutos;
 
     public FoxSeniorApp() {
-        // 1. Carrega o JSON antes de desenhar a tela
         carregarProdutosDoJson();
 
-        // 2. Configurações da Janela
         setTitle("FoxSenior - Impressão de Etiquetas");
-        setSize(400, 300);
+        setSize(550, 450);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
-        setLayout(new GridLayout(6, 2, 10, 10));
+        setLayout(new BorderLayout(10, 10));
 
-        // 3. Inicializando Componentes com os dados do JSON
-        add(new JLabel(" Produto:"));
-        // Transforma a lista de produtos num Array que o ComboBox entende
+        // PAINEL SUPERIOR: Seleção de Template e Item
+        JPanel panelTopo = new JPanel(new GridLayout(4, 1, 5, 5));
+        panelTopo.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
+        
+        panelTopo.add(new JLabel("Modelos de Etiquetas (.OUT):"));
+        comboTemplates = new JComboBox<>(listarArquivosOut());
+        panelTopo.add(comboTemplates);
+
+        panelTopo.add(new JLabel("Item (Produto):"));
         comboProduto = new JComboBox<>(listaProdutos.toArray(new Produto[0]));
-        add(comboProduto);
+        panelTopo.add(comboProduto);
+        
+        add(panelTopo, BorderLayout.NORTH);
 
-        add(new JLabel(" Lote:"));
+        // PAINEL CENTRAL: Dados Visuais e Variáveis
+        JPanel panelCentro = new JPanel(new GridLayout(4, 2, 10, 10));
+        panelCentro.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(), "Dados da Produção", TitledBorder.LEFT, TitledBorder.TOP));
+
+        panelCentro.add(new JLabel("Marca:"));
+        txtMarca = new JTextField();
+        txtMarca.setEditable(false); // Travado para digitação
+        panelCentro.add(txtMarca);
+
+        panelCentro.add(new JLabel("Cod. EAN-13:"));
+        txtEAN = new JTextField();
+        txtEAN.setEditable(false); // Travado para digitação
+        panelCentro.add(txtEAN);
+
+        panelCentro.add(new JLabel("Numero do Lote:"));
         txtLote = new JTextField("LOTE-001");
-        add(txtLote);
+        panelCentro.add(txtLote);
 
-        add(new JLabel(" Turno:"));
+        panelCentro.add(new JLabel("Turno (1-A, 2-B...):"));
         txtTurno = new JTextField("1-A");
-        add(txtTurno);
+        panelCentro.add(txtTurno);
 
-        add(new JLabel(" Validade (MM/AAAA):"));
-        txtValidade = new JTextField("12/2026");
-        add(txtValidade);
+        panelCentro.add(new JLabel("Data de Validade:"));
+        txtValidade = new JTextField("11/2026");
+        panelCentro.add(txtValidade);
 
-        add(new JLabel("")); 
-        btnImprimir = new JButton("IMPRIMIR ETIQUETA");
-        btnImprimir.setBackground(new Color(34, 139, 34)); 
-        btnImprimir.setForeground(Color.WHITE);
+        panelCentro.add(new JLabel("Quantidade Etiq.:"));
+        txtQtd = new JTextField("1");
+        panelCentro.add(txtQtd);
+
+        // Container para dar uma margem no centro
+        JPanel marginPanel = new JPanel(new BorderLayout());
+        marginPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        marginPanel.add(panelCentro, BorderLayout.CENTER);
+        add(marginPanel, BorderLayout.CENTER);
+
+        // PAINEL INFERIOR: Botão
+        JPanel panelBaixo = new JPanel();
+        btnImprimir = new JButton("OK - IMPRIMIR");
+        btnImprimir.setPreferredSize(new Dimension(200, 40));
         btnImprimir.setFont(new Font("Arial", Font.BOLD, 14));
-        add(btnImprimir);
+        panelBaixo.add(btnImprimir);
+        add(panelBaixo, BorderLayout.SOUTH);
 
-        // Ação do Botão
+        // LÓGICA DE EVENTOS
         btnImprimir.addActionListener(e -> dispararImpressao());
+        
+        // Listener: Quando mudar o produto, atualiza a tela
+        comboProduto.addActionListener(e -> preencherDadosTela());
+        
+        // Força o preenchimento da tela ao abrir pela primeira vez
+        preencherDadosTela(); 
+    }
+
+    private String[] listarArquivosOut() {
+        File pasta = new File(".");
+        File[] arquivos = pasta.listFiles((dir, nome) -> nome.toLowerCase().endsWith(".out"));
+        if (arquivos == null || arquivos.length == 0) return new String[]{"Nenhum modelo .out encontrado"};
+        
+        String[] nomes = new String[arquivos.length];
+        for (int i = 0; i < arquivos.length; i++) {
+            nomes[i] = arquivos[i].getName();
+        }
+        return nomes;
     }
 
     private void carregarProdutosDoJson() {
         try {
-            // Lê o arquivo de texto
             String json = new String(Files.readAllBytes(Paths.get("etiq.json")));
-            
-            // O Gson faz a mágica de converter o Texto na nossa Lista de Produtos
             Gson gson = new Gson();
-            
-            // CORREÇÃO: Usando o nome completo (java.lang.reflect.Type) para evitar confusão com o JFrame
             java.lang.reflect.Type tipoLista = new TypeToken<List<Produto>>(){}.getType();
-            
             listaProdutos = gson.fromJson(json, tipoLista);
-            
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "Erro ao ler o etiq.json. O arquivo existe e está bem formatado?\n" + e.getMessage());
-            System.exit(1); // Fecha o app se não achar o banco
+            JOptionPane.showMessageDialog(null, "Erro ao ler etiq.json\n" + e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    private void preencherDadosTela() {
+        Produto p = (Produto) comboProduto.getSelectedItem();
+        if (p != null) {
+            // Atualiza os campos travados lendo do JSON
+            txtMarca.setText(p.variaveisFixas.getOrDefault("#B", "N/A"));
+            txtEAN.setText(p.variaveisFixas.getOrDefault("#D", "N/A"));
+            
+            // Auto-seleciona o template, mas permite que o usuário mude
+            comboTemplates.setSelectedItem(p.template);
         }
     }
 
     private void dispararImpressao() {
-        // Pega o Objeto Produto inteiro que o usuário selecionou na tela
         Produto selecionado = (Produto) comboProduto.getSelectedItem();
-        
         String lote = txtLote.getText();
         String turno = txtTurno.getText();
         String validade = txtValidade.getText();
+        String templateEscolhido = (String) comboTemplates.getSelectedItem();
 
-        // Passa as variáveis fixas daquele produto específico para o motor
         Map<String, String> produtoMock = new HashMap<>(selecionado.variaveisFixas);
 
         try {
-            // Usa o template amarrado no JSON dinamicamente
-            MotorEtiquetaZebra.imprimirEtiqueta(selecionado.template, produtoMock, lote, turno, validade);
-            JOptionPane.showMessageDialog(this, "Comando enviado para a impressora com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            boolean enviou = MotorEtiquetaZebra.imprimirEtiqueta(templateEscolhido, produtoMock, lote, turno, validade);
+            if (enviou) {
+                JOptionPane.showMessageDialog(this, "Etiqueta enviada com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new FoxSeniorApp().setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new FoxSeniorApp().setVisible(true));
     }
 
-    // --- A nossa "Fôrma" do JSON ---
-    // O Gson lê o JSON e preenche esta classe automaticamente se os nomes baterem.
     static class Produto {
         String id;
         String nomeProduto;
         String template;
         Map<String, String> variaveisFixas;
 
-        // O toString diz ao ComboBox da tela o que ele deve mostrar como texto
         @Override
         public String toString() {
             return nomeProduto;
