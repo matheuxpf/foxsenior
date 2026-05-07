@@ -4,166 +4,145 @@ import java.awt.*;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class FoxSeniorApp extends JFrame {
 
     private JComboBox<String> comboTemplates;
-    private JComboBox<Produto> comboProduto;
-    private JTextField txtMarca, txtEAN, txtLote, txtTurno, txtValidade, txtQtd;
+    private JTextField txtQtd;
+    private JPanel panelCamposDinamicos;
+    private Map<String, JTextField> mapaInputs = new HashMap<>();
     private JButton btnImprimir;
-    private List<Produto> listaProdutos;
+    private final Color corRaposa = new Color(235, 110, 0);
+
+    // Dicionário opcional para nomes amigáveis
+    // Dicionário de traduções para linguagem natural
+    private final Map<String, String> DICIONARIO = new HashMap<>();
 
     public FoxSeniorApp() {
-        carregarProdutosDoJson();
+        // --- INICIALIZANDO O DICIONARIO ---
+        DICIONARIO.put("#C", "Produto");
+        DICIONARIO.put("#E", "Sabor");
+        DICIONARIO.put("#D", "EAN/Barras");
+        DICIONARIO.put("#R", "Lote");
+        DICIONARIO.put("#I", "Turno");
+        DICIONARIO.put("#Q", "Validade");
+        DICIONARIO.put("#B", "Marca");
+        DICIONARIO.put("#L1", "Linha Livre 1");
+        DICIONARIO.put("#L2", "Linha Livre 2");
+        DICIONARIO.put("#L3", "Linha Livre 3");
+        DICIONARIO.put("#L4", "Linha Livre 4");
+        DICIONARIO.put("#L5", "Linha Livre 5");
 
-        setTitle("FoxSenior - Impressão de Etiquetas");
-        setSize(550, 450);
+        setTitle("FoxSenior - Etiquetas Livres");
+        setSize(600, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // PAINEL SUPERIOR: Seleção de Template e Item
-        JPanel panelTopo = new JPanel(new GridLayout(4, 1, 5, 5));
-        panelTopo.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
-        
-        panelTopo.add(new JLabel("Modelos de Etiquetas (.OUT):"));
+        // PAINEL SUPERIOR: Escolha do Arquivo
+        JPanel panelNorte = new JPanel(new GridLayout(4, 1, 5, 5));
+        panelNorte.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        panelNorte.add(new JLabel("1. Selecione o arquivo de modelo (.out):"));
         comboTemplates = new JComboBox<>(listarArquivosOut());
-        panelTopo.add(comboTemplates);
-
-        panelTopo.add(new JLabel("Item (Produto):"));
-        comboProduto = new JComboBox<>(listaProdutos.toArray(new Produto[0]));
-        panelTopo.add(comboProduto);
-        
-        add(panelTopo, BorderLayout.NORTH);
-
-        // PAINEL CENTRAL: Dados Visuais e Variáveis
-        JPanel panelCentro = new JPanel(new GridLayout(4, 2, 10, 10));
-        panelCentro.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(), "Dados da Produção", TitledBorder.LEFT, TitledBorder.TOP));
-
-        panelCentro.add(new JLabel("Marca:"));
-        txtMarca = new JTextField();
-        txtMarca.setEditable(false); // Travado para digitação
-        panelCentro.add(txtMarca);
-
-        panelCentro.add(new JLabel("Cod. EAN-13:"));
-        txtEAN = new JTextField();
-        txtEAN.setEditable(false); // Travado para digitação
-        panelCentro.add(txtEAN);
-
-        panelCentro.add(new JLabel("Numero do Lote:"));
-        txtLote = new JTextField("LOTE-001");
-        panelCentro.add(txtLote);
-
-        panelCentro.add(new JLabel("Turno (1-A, 2-B...):"));
-        txtTurno = new JTextField("1-A");
-        panelCentro.add(txtTurno);
-
-        panelCentro.add(new JLabel("Data de Validade:"));
-        txtValidade = new JTextField("11/2026");
-        panelCentro.add(txtValidade);
-
-        panelCentro.add(new JLabel("Quantidade Etiq.:"));
+        panelNorte.add(comboTemplates);
+        panelNorte.add(new JLabel("2. Quantidade de etiquetas:"));
         txtQtd = new JTextField("1");
-        panelCentro.add(txtQtd);
+        panelNorte.add(txtQtd);
+        add(panelNorte, BorderLayout.NORTH);
 
-        // Container para dar uma margem no centro
-        JPanel marginPanel = new JPanel(new BorderLayout());
-        marginPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        marginPanel.add(panelCentro, BorderLayout.CENTER);
-        add(marginPanel, BorderLayout.CENTER);
+        // PAINEL CENTRAL: Campos detectados no arquivo
+        panelCamposDinamicos = new JPanel();
+        panelCamposDinamicos.setLayout(new BoxLayout(panelCamposDinamicos, BoxLayout.Y_AXIS));
+        JScrollPane scroll = new JScrollPane(panelCamposDinamicos);
+        scroll.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(corRaposa, 2), 
+                "Campos Detectados no Template", TitledBorder.LEFT, TitledBorder.TOP, null, corRaposa));
+        add(scroll, BorderLayout.CENTER);
 
-        // PAINEL INFERIOR: Botão
-        JPanel panelBaixo = new JPanel();
-        btnImprimir = new JButton("OK - IMPRIMIR");
-        btnImprimir.setPreferredSize(new Dimension(200, 40));
-        btnImprimir.setFont(new Font("Arial", Font.BOLD, 14));
-        panelBaixo.add(btnImprimir);
-        add(panelBaixo, BorderLayout.SOUTH);
+        // BOTÃO
+        btnImprimir = new JButton("GERAR E IMPRIMIR");
+        btnImprimir.setBackground(corRaposa);
+        btnImprimir.setForeground(Color.WHITE);
+        btnImprimir.setFont(new Font("Arial", Font.BOLD, 16));
+        btnImprimir.setPreferredSize(new Dimension(0, 60));
+        add(btnImprimir, BorderLayout.SOUTH);
 
-        // LÓGICA DE EVENTOS
-        btnImprimir.addActionListener(e -> dispararImpressao());
-        
-        // Listener: Quando mudar o produto, atualiza a tela
-        comboProduto.addActionListener(e -> preencherDadosTela());
-        
-        // Força o preenchimento da tela ao abrir pela primeira vez
-        preencherDadosTela(); 
+        // EVENTOS
+        comboTemplates.addActionListener(e -> scanTemplate());
+        btnImprimir.addActionListener(e -> executarImpressao());
+
+        scanTemplate(); // Inicializa o primeiro
+    }
+
+    private void scanTemplate() {
+        panelCamposDinamicos.removeAll();
+        mapaInputs.clear();
+        String arquivo = (String) comboTemplates.getSelectedItem();
+        if (arquivo == null) return;
+
+        try {
+            String conteudo = new String(Files.readAllBytes(Paths.get(arquivo)));
+            // REGEX Ninja: Busca qualquer # seguido de uma letra ou número
+            Matcher m = Pattern.compile("#[A-Z0-9]+").matcher(conteudo);
+            Set<String> tags = new TreeSet<>();
+            while (m.find()) { tags.add(m.group()); }
+
+            for (String tag : tags) {
+                JPanel row = new JPanel(new BorderLayout(5, 5));
+                row.setMaximumSize(new Dimension(1000, 40));
+                
+                String labelTexto = DICIONARIO.getOrDefault(tag, "Campo " + tag);
+                JLabel label = new JLabel(labelTexto + " (" + tag + "):");
+                label.setPreferredSize(new Dimension(180, 25));
+                
+                JTextField input = new JTextField();
+                mapaInputs.put(tag, input);
+                
+                row.add(label, BorderLayout.WEST);
+                row.add(input, BorderLayout.CENTER);
+                panelCamposDinamicos.add(row);
+                panelCamposDinamicos.add(Box.createVerticalStrut(5));
+            }
+        } catch (Exception e) {
+            panelCamposDinamicos.add(new JLabel("Erro ao ler arquivo: " + e.getMessage()));
+        }
+        panelCamposDinamicos.revalidate();
+        panelCamposDinamicos.repaint();
+    }
+
+    private void executarImpressao() {
+        try {
+            String arquivo = (String) comboTemplates.getSelectedItem();
+            String zpl = new String(Files.readAllBytes(Paths.get(arquivo)));
+
+            // Substitui TUDO que foi mapeado
+            for (Map.Entry<String, JTextField> entry : mapaInputs.entrySet()) {
+                zpl = zpl.replace(entry.getKey(), entry.getValue().getText());
+            }
+
+            // Fix Quantidade
+            int qtd = Integer.parseInt(txtQtd.getText());
+            zpl = zpl.replaceAll("\\^PQ\\d+", "^PQ" + qtd);
+
+            // Chama o motor (agora como public)
+            MotorEtiquetaZebra.enviarParaImpressora(zpl);
+            
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage());
+        }
     }
 
     private String[] listarArquivosOut() {
         File pasta = new File(".");
         File[] arquivos = pasta.listFiles((dir, nome) -> nome.toLowerCase().endsWith(".out"));
-        if (arquivos == null || arquivos.length == 0) return new String[]{"Nenhum modelo .out encontrado"};
-        
-        String[] nomes = new String[arquivos.length];
-        for (int i = 0; i < arquivos.length; i++) {
-            nomes[i] = arquivos[i].getName();
-        }
-        return nomes;
-    }
-
-    private void carregarProdutosDoJson() {
-        try {
-            String json = new String(Files.readAllBytes(Paths.get("etiq.json")));
-            Gson gson = new Gson();
-            java.lang.reflect.Type tipoLista = new TypeToken<List<Produto>>(){}.getType();
-            listaProdutos = gson.fromJson(json, tipoLista);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "Erro ao ler etiq.json\n" + e.getMessage());
-            System.exit(1);
-        }
-    }
-
-    private void preencherDadosTela() {
-        Produto p = (Produto) comboProduto.getSelectedItem();
-        if (p != null) {
-            // Atualiza os campos travados lendo do JSON
-            txtMarca.setText(p.variaveisFixas.getOrDefault("#B", "N/A"));
-            txtEAN.setText(p.variaveisFixas.getOrDefault("#D", "N/A"));
-            
-            // Auto-seleciona o template, mas permite que o usuário mude
-            comboTemplates.setSelectedItem(p.template);
-        }
-    }
-
-    private void dispararImpressao() {
-        Produto selecionado = (Produto) comboProduto.getSelectedItem();
-        String lote = txtLote.getText();
-        String turno = txtTurno.getText();
-        String validade = txtValidade.getText();
-        String templateEscolhido = (String) comboTemplates.getSelectedItem();
-
-        Map<String, String> produtoMock = new HashMap<>(selecionado.variaveisFixas);
-
-        try {
-            boolean enviou = MotorEtiquetaZebra.imprimirEtiqueta(templateEscolhido, produtoMock, lote, turno, validade);
-            if (enviou) {
-                JOptionPane.showMessageDialog(this, "Etiqueta enviada com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
-            }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Erro: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-        }
+        if (arquivos == null || arquivos.length == 0) return new String[0];
+        return Arrays.stream(arquivos).map(File::getName).toArray(String[]::new);
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new FoxSeniorApp().setVisible(true));
-    }
-
-    static class Produto {
-        String id;
-        String nomeProduto;
-        String template;
-        Map<String, String> variaveisFixas;
-
-        @Override
-        public String toString() {
-            return nomeProduto;
-        }
     }
 }

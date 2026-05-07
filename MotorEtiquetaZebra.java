@@ -7,24 +7,26 @@ import java.util.Map;
 import java.util.HashMap;
 
 public class MotorEtiquetaZebra {
+    public static boolean imprimirEtiqueta(String caminhoTemplate, Map<String, String> vars, String lote, String turno, String validade, int qtd) throws Exception {
+        String layoutZpl = new String(Files.readAllBytes(Paths.get(caminhoTemplate)));
 
-    public static boolean imprimirEtiqueta(String caminhoTemplateOut, Map<String, String> variaveisProduto, String lote, String turno, String validade) throws Exception {
-        String layoutZpl = new String(Files.readAllBytes(Paths.get(caminhoTemplateOut)));
-
-        Map<String, String> dadosImpressao = new HashMap<>(variaveisProduto);
-        dadosImpressao.put("#R", lote);
-        dadosImpressao.put("#I", turno);
-        dadosImpressao.put("#Q", validade);
-        dadosImpressao.put("#H", "05/05/2026"); // Data de Hoje mockada para o MVP
-
-        for (Map.Entry<String, String> entry : dadosImpressao.entrySet()) {
+        // Substituições básicas
+        layoutZpl = layoutZpl.replace("#R", lote);
+        layoutZpl = layoutZpl.replace("#I", turno);
+        layoutZpl = layoutZpl.replace("#Q", validade);
+        
+        for (Map.Entry<String, String> entry : vars.entrySet()) {
             layoutZpl = layoutZpl.replace(entry.getKey(), entry.getValue());
         }
+
+        // CORREÇÃO DA QUANTIDADE: Busca o comando ^PQ e substitui
+        // O regex garante que pegamos ^PQ seguido de qualquer número e trocamos pela nossa qtd
+        layoutZpl = layoutZpl.replaceAll("\\^PQ\\d+", "^PQ" + qtd);
 
         return enviarParaImpressora(layoutZpl);
     }
 
-    private static boolean enviarParaImpressora(String zplFinal) throws Exception {
+    public static boolean enviarParaImpressora(String zplFinal) throws Exception {
         // Busca todas as impressoras instaladas no Windows
         PrintService[] servicos = PrintServiceLookup.lookupPrintServices(null, null);
         PrintService impressoraPadrao = PrintServiceLookup.lookupDefaultPrintService();
