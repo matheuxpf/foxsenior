@@ -29,6 +29,16 @@ public class FoxSeniorApp extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         
+        // --- NOVO: CARREGAMENTO DO ÍCONE ---
+        try {
+            // Usa o Toolkit nativo para buscar a imagem PNG
+            Image icone = Toolkit.getDefaultToolkit().getImage("src/assets/logofox.png");
+            setIconImage(icone);
+        } catch (Exception e) {
+            System.out.println("Aviso: Ícone não encontrado no caminho especificado.");
+        }
+        // -----------------------------------
+        
         inicializarInterface();
         carregarArquivos();
     }
