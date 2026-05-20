@@ -1,5 +1,4 @@
 import javax.swing.*;
-import javax.swing.border.EtchedBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.print.PrintService;
@@ -17,7 +16,7 @@ public class FoxSeniorApp extends JFrame {
     private DefaultListModel<String> modelLista;
     private JTextArea areaTextoEtiqueta;
     private JComboBox<String> comboModelo;
-    private JTextField txtFabricacao, txtValidade, txtQtd;
+    private JTextField txtQtd;
     private JComboBox<String> comboImpressoras;
     
     private List<SlotLegado> slotsAtivos = new ArrayList<>();
@@ -26,7 +25,7 @@ public class FoxSeniorApp extends JFrame {
 
     public FoxSeniorApp() {
         setTitle("FoxSenior - Impressão de Etiquetas Livres");
-        setSize(900, 650);
+        setSize(950, 600); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         
@@ -63,35 +62,21 @@ public class FoxSeniorApp extends JFrame {
         listArquivos.addListSelectionListener(this::selecionarArquivo);
         colEsquerda.add(new JScrollPane(listArquivos), BorderLayout.CENTER);
 
-        // Painel Inferior Esquerdo (Inputs)
+        // Painel Inferior Esquerdo (Inputs operacionais)
         JPanel painelInputsLista = new JPanel(new GridBagLayout());
         painelInputsLista.setBorder(BorderFactory.createEmptyBorder(10, 5, 5, 5));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(8, 5, 8, 5);
 
         gbc.gridx = 0; gbc.gridy = 0;
-        painelInputsLista.add(new JLabel("Modelo:"), gbc);
-        gbc.gridx = 1; gbc.gridwidth = 3;
+        painelInputsLista.add(new JLabel("Modelo de Impressão:"), gbc);
+        gbc.gridx = 1; 
         comboModelo = new JComboBox<>(new String[]{"1 Coluna", "3 Colunas (Horizontal)"});
-        // Define o padrão como 3 Colunas baseado no uso do legado
-        comboModelo.setSelectedIndex(1);
+        comboModelo.setSelectedIndex(0); 
         painelInputsLista.add(comboModelo, gbc);
 
-        gbc.gridwidth = 1;
         gbc.gridx = 0; gbc.gridy = 1;
-        painelInputsLista.add(new JLabel("Fabricação:"), gbc);
-        gbc.gridx = 1;
-        txtFabricacao = new JTextField("11/11/2026", 8);
-        painelInputsLista.add(txtFabricacao, gbc);
-
-        gbc.gridx = 2; gbc.gridy = 1;
-        painelInputsLista.add(new JLabel("Validade:"), gbc);
-        gbc.gridx = 3;
-        txtValidade = new JTextField("11/11/2026", 8);
-        painelInputsLista.add(txtValidade, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 2;
         painelInputsLista.add(new JLabel("Quantidade Etiq.:"), gbc);
         gbc.gridx = 1;
         txtQtd = new JTextField("1", 5);
@@ -103,32 +88,44 @@ public class FoxSeniorApp extends JFrame {
         // COLUNA DIREITA (Editor de Texto)
         JPanel colDireita = new JPanel(new BorderLayout(5, 5));
         colDireita.setBorder(BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(corRaposa, 2), "Texto da Etiqueta (Preview/Edição)", 
+            BorderFactory.createLineBorder(corRaposa, 2), "Edição Rápida da Etiqueta", 
             TitledBorder.LEFT, TitledBorder.TOP, new Font("Arial", Font.BOLD, 12), corRaposa));
         
         areaTextoEtiqueta = new JTextArea();
-        areaTextoEtiqueta.setFont(new Font("Monospaced", Font.BOLD, 14));
+        areaTextoEtiqueta.setFont(new Font("Monospaced", Font.BOLD, 16)); 
         areaTextoEtiqueta.setBackground(new Color(250, 250, 250));
         colDireita.add(new JScrollPane(areaTextoEtiqueta), BorderLayout.CENTER);
         
+        JLabel lblDica = new JLabel("💡 Altere os dados acima e clique em 'SALVAR ALTERAÇÕES' para gravar.");
+        lblDica.setForeground(Color.GRAY);
+        colDireita.add(lblDica, BorderLayout.SOUTH);
+
         painelCentro.add(colDireita);
         painelPrincipal.add(painelCentro, BorderLayout.CENTER);
 
         // --- RODAPÉ: BOTÕES ---
         JPanel painelBotoes = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
         
-        JButton btnOk = new JButton("GERAR E IMPRIMIR (OK)");
+        JButton btnSalvar = new JButton("SALVAR ALTERAÇÕES");
+        btnSalvar.setBackground(Color.DARK_GRAY);
+        btnSalvar.setForeground(Color.WHITE);
+        btnSalvar.setFont(new Font("Arial", Font.BOLD, 14));
+        btnSalvar.setPreferredSize(new Dimension(200, 45));
+        btnSalvar.addActionListener(e -> executarSalvamento());
+
+        JButton btnOk = new JButton("IMPRIMIR ETIQUETA");
         btnOk.setBackground(corRaposa);
         btnOk.setForeground(Color.WHITE);
         btnOk.setFont(new Font("Arial", Font.BOLD, 14));
-        btnOk.setPreferredSize(new Dimension(220, 45));
+        btnOk.setPreferredSize(new Dimension(200, 45));
         btnOk.addActionListener(e -> executarImpressao());
         
-        JButton btnFechar = new JButton("FECHAR (X)");
+        JButton btnFechar = new JButton("FECHAR");
         btnFechar.setFont(new Font("Arial", Font.BOLD, 14));
-        btnFechar.setPreferredSize(new Dimension(150, 45));
+        btnFechar.setPreferredSize(new Dimension(120, 45));
         btnFechar.addActionListener(e -> System.exit(0));
 
+        painelBotoes.add(btnSalvar);
         painelBotoes.add(btnOk);
         painelBotoes.add(btnFechar);
         painelPrincipal.add(painelBotoes, BorderLayout.SOUTH);
@@ -146,6 +143,7 @@ public class FoxSeniorApp extends JFrame {
         });
         if (arquivos != null) {
             Arrays.sort(arquivos);
+            modelLista.clear();
             for (File f : arquivos) modelLista.addElement(f.getName());
         }
     }
@@ -162,11 +160,10 @@ public class FoxSeniorApp extends JFrame {
         try {
             List<String> linhas = Files.readAllLines(Paths.get(PASTA_TEMPLATES, nomeArquivo));
             for (int i = 0; i < linhas.size(); i++) {
-                String linha = linhas.get(i);
+                String MathLinha = linhas.get(i);
                 
-                if (linha.contains("|")) {
-                    // Lógica para resquícios de arquivos legados
-                    String[] partes = linha.split("\\|");
+                if (MathLinha.contains("|")) {
+                    String[] partes = MathLinha.split("\\|");
                     String meta = partes[0].trim();
                     String textoLimpo = partes.length > 1 ? partes[1].trim() : "";
                     if (textoLimpo.isEmpty() && meta.startsWith("10")) continue;
@@ -180,17 +177,36 @@ public class FoxSeniorApp extends JFrame {
                     slotsAtivos.add(slot);
                     sbPreview.append(textoLimpo).append("\n");
                 } else {
-                    // Lógica FoxSenior: Texto Limpo e Moderno
                     SlotLegado slot = new SlotLegado();
                     slot.linhaIndex = i;
-                    slot.tamanhoFonte = 25; // Fonte padrão ajustada
+                    slot.tamanhoFonte = 25; 
                     slotsAtivos.add(slot);
-                    sbPreview.append(linha).append("\n");
+                    sbPreview.append(MathLinha).append("\n");
                 }
             }
             areaTextoEtiqueta.setText(sbPreview.toString());
+            areaTextoEtiqueta.setCaretPosition(0);
         } catch (Exception ex) {
             areaTextoEtiqueta.setText("Erro ao carregar arquivo: " + ex.getMessage());
+        }
+    }
+
+    private void executarSalvamento() {
+        String arquivo = listArquivos.getSelectedValue();
+        if (arquivo == null) {
+            JOptionPane.showMessageDialog(this, "Selecione um arquivo de etiqueta na lista para salvar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            String textoParaSalvar = areaTextoEtiqueta.getText();
+            Files.write(Paths.get(PASTA_TEMPLATES, arquivo), textoParaSalvar.getBytes());
+            JOptionPane.showMessageDialog(this, "Alterações gravadas no arquivo com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            
+            // Recarrega o arquivo silenciosamente para reestruturar as linhas na memória
+            selecionarArquivo(new ListSelectionEvent(listArquivos, listArquivos.getSelectedIndex(), listArquivos.getSelectedIndex(), false));
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao salvar arquivo: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -209,15 +225,14 @@ public class FoxSeniorApp extends JFrame {
             if (arquivo.toLowerCase().endsWith(".txt")) {
                 String[] linhasDigitadas = areaTextoEtiqueta.getText().split("\n");
                 StringBuilder zpl = new StringBuilder("^XA\n");
-                int fatorY = 35; // Espaçamento vertical entre as linhas de texto livre
+                int fatorY = 35; 
                 int numColunas = comboModelo.getSelectedIndex() == 1 ? 3 : 1;
-                int larguraColuna = 265; // Deslocamento entre colunas no rolo
+                int larguraColuna = 265; 
 
                 for (int i = 0; i < linhasDigitadas.length; i++) {
                     String texto = linhasDigitadas[i].trim();
                     if (texto.isEmpty()) continue;
                     
-                    // Se for legado, usa as posições mapeadas, senão usa fluxo contínuo
                     int y = (i * fatorY) + 40;
                     int h = (i < slotsAtivos.size()) ? slotsAtivos.get(i).tamanhoFonte : 25;
 
@@ -229,10 +244,7 @@ public class FoxSeniorApp extends JFrame {
                 zpl.append("^PQ").append(qtd).append("\n^XZ");
                 zplFinal = zpl.toString();
             } else {
-                // Arquivos .out com formatação estática
                 zplFinal = new String(Files.readAllBytes(Paths.get(PASTA_TEMPLATES, arquivo)));
-                zplFinal = zplFinal.replace("#Q", txtValidade.getText());
-                zplFinal = zplFinal.replace("#F", txtFabricacao.getText());
                 zplFinal = zplFinal.replaceAll("\\^PQ\\d+", "^PQ" + qtd);
             }
 
