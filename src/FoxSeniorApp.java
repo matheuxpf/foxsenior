@@ -42,6 +42,8 @@ public class FoxSeniorApp extends JFrame {
         setSize(1200, 780);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         
         try { setIconImage(Toolkit.getDefaultToolkit().getImage("src/assets/logofox.png")); } catch (Exception e) {}
         
